@@ -1,0 +1,339 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bowserinator <bowserinator@gmail.com>
+Date: Thu, 23 Dec 2021 11:02:05 -0500
+Subject: [PATCH] More patches
+
+
+diff --git a/src/main/java/net/minecraft/server/level/ServerLevel.java b/src/main/java/net/minecraft/server/level/ServerLevel.java
+index 28f605c3daa969c1a54745e552d55ecb874120a9..e09809586f3ed9a8aa55c2a2bdb7da191b5f5e57 100644
+--- a/src/main/java/net/minecraft/server/level/ServerLevel.java
++++ b/src/main/java/net/minecraft/server/level/ServerLevel.java
+@@ -2475,11 +2475,11 @@ public class ServerLevel extends Level implements WorldGenLevel {
+             // Spigot end
+             // Spigot Start
+             if (entity.getBukkitEntity() instanceof org.bukkit.inventory.InventoryHolder) {
+-                // Paper start
+-                if (entity.getBukkitEntity() instanceof org.bukkit.inventory.Merchant merchant && merchant.getTrader() != null) {
+-                    merchant.getTrader().closeInventory(org.bukkit.event.inventory.InventoryCloseEvent.Reason.UNLOADED);
+-                }
+-                // Paper end
++                // Toilet paper
++				// Unpatches villager GUIs remaining open when going through an end gateway,
++				// which is often used for end-game void trading halls
++				// Toiler paper end
++				
+                 for (org.bukkit.entity.HumanEntity h : Lists.newArrayList(((org.bukkit.inventory.InventoryHolder) entity.getBukkitEntity()).getInventory().getViewers())) {
+                     h.closeInventory(org.bukkit.event.inventory.InventoryCloseEvent.Reason.UNLOADED); // Paper
+                 }
+diff --git a/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java b/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
+index 057fcbc389e54e0c9f7a90a3e8b965cd46db9d58..aa7f3cd49eb6467e7f583368be26258afa76dc21 100644
+--- a/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
++++ b/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
+@@ -3056,10 +3056,12 @@ public class ServerGamePacketListenerImpl implements ServerPlayerConnection, Ser
+                 }
+                 // Paper end
+ 
++				// Toilet paper - allow players to send color data to make colored signs
++				// Note: it still won't work (probably got patched in spigot or the base game)
+                 if (this.player.isTextFilteringEnabled()) {
+-                    lines.add(net.kyori.adventure.text.Component.text(SharedConstants.filterText(currentLine.getFiltered())));
++					lines.add(net.kyori.adventure.text.Component.text(currentLine.getFiltered()));
+                 } else {
+-                    lines.add(net.kyori.adventure.text.Component.text(SharedConstants.filterText(currentLine.getRaw())));
++					lines.add(net.kyori.adventure.text.Component.text(currentLine.getRaw()));
+                 }
+             }
+             SignChangeEvent event = new SignChangeEvent((org.bukkit.craftbukkit.block.CraftBlock) player.getWorld().getBlockAt(x, y, z), this.player.getBukkitEntity(), lines);
+diff --git a/src/main/java/net/minecraft/world/entity/Entity.java b/src/main/java/net/minecraft/world/entity/Entity.java
+index 1fa8e547496ec0161239045dd583188775949c71..80c10415e1fbc64107df94d6561583df5968e435 100644
+--- a/src/main/java/net/minecraft/world/entity/Entity.java
++++ b/src/main/java/net/minecraft/world/entity/Entity.java
+@@ -251,7 +251,7 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource, i
+     public double zOld;
+     public float maxUpStep;
+     public boolean noPhysics;
+-    protected final Random random;
++    protected Random random; // Toilet paper - allow RNG manipulation only for player entities, other entities used shared random
+     public int tickCount;
+     public int remainingFireTicks;
+     public boolean wasTouchingWater;
+@@ -388,36 +388,38 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource, i
+         return chunkMap.playerEntityTrackerTrackMaps[type.ordinal()].getObjectsInRange(MCUtil.getCoordinateKey(this));
+     }
+     // Paper end - optimise entity tracking
++	
++	// Toilet paper start - sand dupe
+     // Paper start - make end portalling safe
+-    public BlockPos portalBlock;
+-    public ServerLevel portalWorld;
+-    public void tickEndPortal() {
+-        BlockPos pos = this.portalBlock;
+-        ServerLevel world = this.portalWorld;
+-        this.portalBlock = null;
+-        this.portalWorld = null;
+-
+-        if (pos == null || world == null || world != this.level) {
+-            return;
+-        }
+-
+-        if (this.isPassenger() || this.isVehicle() || !this.canChangeDimensions() || this.isRemoved() || !this.valid || !this.isAlive()) {
+-            return;
+-        }
+-
+-        ResourceKey<Level> resourcekey = world.getTypeKey() == LevelStem.END ? Level.OVERWORLD : Level.END; // CraftBukkit - SPIGOT-6152: send back to main overworld in custom ends
+-        ServerLevel worldserver = world.getServer().getLevel(resourcekey);
+-
+-        org.bukkit.event.entity.EntityPortalEnterEvent event = new org.bukkit.event.entity.EntityPortalEnterEvent(this.getBukkitEntity(), new org.bukkit.Location(world.getWorld(), pos.getX(), pos.getY(), pos.getZ()));
+-        event.callEvent();
+-
+-        if (this instanceof ServerPlayer) {
+-            ((ServerPlayer)this).changeDimension(worldserver, PlayerTeleportEvent.TeleportCause.END_PORTAL);
+-            return;
+-        }
+-        this.teleportTo(worldserver, null);
+-    }
+-    // Paper end - make end portalling safe
++    // public BlockPos portalBlock;
++    // public ServerLevel portalWorld;
++    // public void tickEndPortal() {
++        // BlockPos pos = this.portalBlock;
++        // ServerLevel world = this.portalWorld;
++        // this.portalBlock = null;
++        // this.portalWorld = null;
++
++        // if (pos == null || world == null || world != this.level) {
++            // return;
++        // }
++
++        // if (this.isPassenger() || this.isVehicle() || !this.canChangeDimensions() || this.isRemoved() || !this.valid || !this.isAlive()) {
++            // return;
++        // }
++
++        // ResourceKey<Level> resourcekey = world.getTypeKey() == LevelStem.END ? Level.OVERWORLD : Level.END; // CraftBukkit - SPIGOT-6152: send back to main overworld in custom ends
++        // ServerLevel worldserver = world.getServer().getLevel(resourcekey);
++
++        // org.bukkit.event.entity.EntityPortalEnterEvent event = new org.bukkit.event.entity.EntityPortalEnterEvent(this.getBukkitEntity(), new org.bukkit.Location(world.getWorld(), pos.getX(), pos.getY(), pos.getZ()));
++        // event.callEvent();
++
++        // if (this instanceof ServerPlayer) {
++            // ((ServerPlayer)this).changeDimension(worldserver, PlayerTeleportEvent.TeleportCause.END_PORTAL);
++            // return;
++        // }
++        // this.teleportTo(worldserver, null);
++    // }
++    // Toilet Paper end - make end portalling safe
+ 
+     // Paper start
+     /**
+@@ -476,7 +478,7 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource, i
+         this.bb = Entity.INITIAL_AABB;
+         this.stuckSpeedMultiplier = Vec3.ZERO;
+         this.nextStep = 1.0F;
+-        this.random = new Random(); // Paper
++        this.random = SHARED_RANDOM; // Paper
+         this.remainingFireTicks = -this.getFireImmuneTicks();
+         this.fluidHeight = new Object2DoubleArrayMap(2);
+         this.firstTick = true;
+@@ -2746,7 +2748,7 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource, i
+             }
+ 
+             this.processPortalCooldown();
+-            this.tickEndPortal(); // Paper - make end portalling safe
++            // this.tickEndPortal(); // Paper - make end portalling safe - Toilet paper - sand dupe
+         }
+     }
+ 
+diff --git a/src/main/java/net/minecraft/world/entity/item/FallingBlockEntity.java b/src/main/java/net/minecraft/world/entity/item/FallingBlockEntity.java
+index 0c94b4cb6ee0c3dffe0b67a2291d0160ae0ef96f..a3d008390ee50ac0dbbc06d4e295ff1d8099faed 100644
+--- a/src/main/java/net/minecraft/world/entity/item/FallingBlockEntity.java
++++ b/src/main/java/net/minecraft/world/entity/item/FallingBlockEntity.java
+@@ -110,11 +110,9 @@ public class FallingBlockEntity extends Entity {
+ 
+     @Override
+     public void tick() {
+-        // Paper start - fix sand duping
+-        if (this.isRemoved()) {
+-            return;
+-        }
+-        // Paper end - fix sand duping
++		// Toilet paper - enable sand duping
++		// with end portal
++		
+         if (this.blockState.isAir()) {
+             this.discard();
+         } else if (this.level.isClientSide && this.removeAtMillis > 0L) {
+@@ -152,12 +150,6 @@ public class FallingBlockEntity extends Entity {
+ 
+             this.move(MoverType.SELF, this.getDeltaMovement());
+ 
+-            // Paper start - fix sand duping
+-            if (this.isRemoved()) {
+-                return;
+-            }
+-            // Paper end - fix sand duping
+-
+             // Paper start - Configurable EntityFallingBlock height nerf
+             if (this.level.paperConfig.fallingBlockHeightNerf != 0 && this.getY() > this.level.paperConfig.fallingBlockHeightNerf) {
+                 if (this.dropItem && this.level.getGameRules().getBoolean(GameRules.RULE_DOENTITYDROPS)) {
+@@ -345,18 +337,23 @@ public class FallingBlockEntity extends Entity {
+     @Override
+     protected void readAdditionalSaveData(CompoundTag nbt) {
+         this.blockState = NbtUtils.readBlockState(nbt.getCompound("BlockState"));
+-        // Paper start - Block FallingBlocks with Command Blocks
+-        final Block b = this.blockState.getBlock();
+-        if (this.level.paperConfig.filterNBTFromSpawnEgg
+-            && (b == Blocks.COMMAND_BLOCK
+-            || b == Blocks.REPEATING_COMMAND_BLOCK
+-            || b == Blocks.CHAIN_COMMAND_BLOCK
+-            || b == Blocks.JIGSAW
+-            || b == Blocks.STRUCTURE_BLOCK
+-            || b instanceof net.minecraft.world.level.block.GameMasterBlock)) {
+-            this.blockState = Blocks.STONE.defaultBlockState();
+-        }
+-        // Paper end
++        // Toilet paper - this may break
++		// "1 command" contrapations. Note that summoning command blocks
++		// on a creative server is a moot point as you need OP to use it
++		// or you can just use saved hotbars or a client. This is likely to
++		// prevent falling sand bugs
++		
++        // final Block b = this.blockState.getBlock();
++        // if (this.level.paperConfig.filterNBTFromSpawnEgg
++            // && (b == Blocks.COMMAND_BLOCK
++            // || b == Blocks.REPEATING_COMMAND_BLOCK
++            // || b == Blocks.CHAIN_COMMAND_BLOCK
++            // || b == Blocks.JIGSAW
++            // || b == Blocks.STRUCTURE_BLOCK
++            // || b instanceof net.minecraft.world.level.block.GameMasterBlock)) {
++            // this.blockState = Blocks.STONE.defaultBlockState();
++        // }
++        // Toiler paper end
+         this.time = nbt.getInt("Time");
+         if (nbt.contains("HurtEntities", 99)) {
+             this.hurtEntities = nbt.getBoolean("HurtEntities");
+diff --git a/src/main/java/net/minecraft/world/entity/player/Player.java b/src/main/java/net/minecraft/world/entity/player/Player.java
+index 2c00a766130a7f682fc6c4c74321e10637ca7932..aa750a202f93c1fb805d191799ec123369ac7910 100644
+--- a/src/main/java/net/minecraft/world/entity/player/Player.java
++++ b/src/main/java/net/minecraft/world/entity/player/Player.java
+@@ -10,6 +10,7 @@ import java.util.Collection;
+ import java.util.Iterator;
+ import java.util.List;
+ import java.util.Map;
++import java.util.Random; // Toilet paper
+ import java.util.Optional;
+ import java.util.OptionalInt;
+ import java.util.UUID;
+@@ -193,6 +194,7 @@ public abstract class Player extends LivingEntity {
+ 
+     public Player(Level world, BlockPos pos, float yaw, GameProfile profile) {
+         super(EntityType.PLAYER, world);
++		this.random = new Random(); // Toilet paper - fix player seed based RNG manipulation being broken
+         this.lastItemInMainHand = ItemStack.EMPTY;
+         this.cooldowns = this.createItemCooldowns();
+         this.setUUID(Player.createPlayerUUID(profile));
+diff --git a/src/main/java/net/minecraft/world/entity/projectile/AbstractArrow.java b/src/main/java/net/minecraft/world/entity/projectile/AbstractArrow.java
+index 3d3dcb47720055f550d17d1f106a2c0e59de2919..0189050102c52055f184c4aca83206238c39a152 100644
+--- a/src/main/java/net/minecraft/world/entity/projectile/AbstractArrow.java
++++ b/src/main/java/net/minecraft/world/entity/projectile/AbstractArrow.java
+@@ -198,7 +198,12 @@ public abstract class AbstractArrow extends Projectile {
+ 
+             ++this.inGroundTime;
+         } else {
+-            if (tickCount > 200) this.tickDespawn(); // Paper - tick despawnCounter regardless after 10 seconds
++			// Toilet paper start
++			// Paper fixes MC-125757 - arrows don't despawn if in motion in vanilla, but not in Paper, which
++			// can break TNT looting chambers, arrow railguns, and cool "fountains" involving an arrow and a
++			// slime block.
++            // if (tickCount > 200) this.tickDespawn(); // Paper - tick despawnCounter regardless after 10 seconds
++			// Toilet paper end
+             this.inGroundTime = 0;
+             Vec3 vec3d2 = this.position();
+ 
+diff --git a/src/main/java/net/minecraft/world/item/trading/MerchantOffer.java b/src/main/java/net/minecraft/world/item/trading/MerchantOffer.java
+index c9cb0717c2793acd5b5870a6cc4d672d69a40026..c9d9937e9730aed314bf29d8b0d27d850c1e5d55 100644
+--- a/src/main/java/net/minecraft/world/item/trading/MerchantOffer.java
++++ b/src/main/java/net/minecraft/world/item/trading/MerchantOffer.java
+@@ -132,7 +132,12 @@ public class MerchantOffer {
+     }
+ 
+     public void updateDemand() {
+-        this.demand = Math.max(0, this.demand + this.uses - (this.maxUses - this.uses)); // Paper
++		// Toilet paper start
++		// In vanilla due to MC-163692 demand can go negative
++		// Paper originally patched this to behave correctly, but
++		// causes villagers to raise prices faster than in vanilla
++        this.demand = this.demand + this.uses - (this.maxUses - this.uses);
++		// Toilet paper end
+     }
+ 
+     public ItemStack assemble() {
+diff --git a/src/main/java/net/minecraft/world/level/block/EndPortalBlock.java b/src/main/java/net/minecraft/world/level/block/EndPortalBlock.java
+index 19892cb3cb290add4f094dc87bb22106e4f07a24..ac4419e72a65f4b02a08437a251ed0bdb1f332df 100644
+--- a/src/main/java/net/minecraft/world/level/block/EndPortalBlock.java
++++ b/src/main/java/net/minecraft/world/level/block/EndPortalBlock.java
+@@ -53,10 +53,20 @@ public class EndPortalBlock extends BaseEntityBlock {
+                 // return; // CraftBukkit - always fire event in case plugins wish to change it
+             }
+ 
++			// Toilet paper start
++			// - End portal crap
++			EntityPortalEnterEvent event = new EntityPortalEnterEvent(entity.getBukkitEntity(), new org.bukkit.Location(world.getWorld(), pos.getX(), pos.getY(), pos.getZ()));
++			world.getCraftServer().getPluginManager().callEvent(event);
++
++			if (entity instanceof ServerPlayer) {
++				((ServerPlayer) entity).changeDimension(worldserver, PlayerTeleportEvent.TeleportCause.END_PORTAL);
++				return;
++			}
+             // Paper start - move all of this logic into portal tick
+-            entity.portalWorld = ((ServerLevel)world);
+-            entity.portalBlock = pos.immutable();
++            //entity.portalWorld = ((ServerLevel)world);
++            //entity.portalBlock = pos.immutable();
+             // Paper end - move all of this logic into portal tick
++			// Toilet paper end
+         }
+ 
+     }
+diff --git a/src/main/java/net/minecraft/world/level/block/TripWireHookBlock.java b/src/main/java/net/minecraft/world/level/block/TripWireHookBlock.java
+index 02a3e1ced592784b9c66927c76376c7ab413367d..db9ada5153dd3e8a31df09554a37e50195eca53b 100644
+--- a/src/main/java/net/minecraft/world/level/block/TripWireHookBlock.java
++++ b/src/main/java/net/minecraft/world/level/block/TripWireHookBlock.java
+@@ -174,7 +174,8 @@ public class TripWireHookBlock extends Block {
+ 
+         this.playSound(world, pos, flag4, flag5, flag2, flag3);
+         if (!beingRemoved) {
+-            if (world.getBlockState(pos).getBlock() == Blocks.TRIPWIRE_HOOK) // Paper - validate
++			// Toilet paper - undo fix tripwire dupe
++            // if (world.getBlockState(pos).getBlock() == Blocks.TRIPWIRE_HOOK) // Paper - validate
+             world.setBlock(pos, (BlockState) iblockdata3.setValue(TripWireHookBlock.FACING, enumdirection), 3);
+             if (flag1) {
+                 this.notifyNeighbors(world, pos, enumdirection);
+diff --git a/src/main/java/net/minecraft/world/level/block/entity/TheEndGatewayBlockEntity.java b/src/main/java/net/minecraft/world/level/block/entity/TheEndGatewayBlockEntity.java
+index bc028de0ac71e69e8d714db5f65286f306544bf1..5f463320c4c4da80199e1d07d1dbea90d5a2b96f 100644
+--- a/src/main/java/net/minecraft/world/level/block/entity/TheEndGatewayBlockEntity.java
++++ b/src/main/java/net/minecraft/world/level/block/entity/TheEndGatewayBlockEntity.java
+@@ -104,14 +104,18 @@ public class TheEndGatewayBlockEntity extends TheEndPortalBlockEntity {
+             List<Entity> list = world.getEntitiesOfClass(Entity.class, new AABB(pos), TheEndGatewayBlockEntity::canEntityTeleport);
+ 
+             if (!list.isEmpty()) {
++				// Toilet paper start
++				// Void trading halls
++				TheEndGatewayBlockEntity.teleportEntity(world, pos, state, (Entity) list.get(world.random.nextInt(list.size())), blockEntity);
+                 // Paper start
+-                for (Entity entity : list) {
+-                    if (entity.canChangeDimensions()) {
+-                        TheEndGatewayBlockEntity.teleportEntity(world, pos, state, entity, blockEntity);
+-                        break;
+-                    }
+-                }
++                // for (Entity entity : list) {
++                    // if (entity.canChangeDimensions()) {
++                        // TheEndGatewayBlockEntity.teleportEntity(world, pos, state, entity, blockEntity);
++                        // break;
++                    // }
++                // }
+                 // Paper end
++				// Toilet paper end
+             }
+ 
+             if (blockEntity.age % 2400L == 0L) {
